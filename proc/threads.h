@@ -87,6 +87,8 @@ typedef struct _thread_t {
 	cpu_context_t *context;
 } thread_t;
 
+// MG: Temporary?
+extern int threads_enable_monitoring();
 
 extern int perf_start(unsigned pid);
 

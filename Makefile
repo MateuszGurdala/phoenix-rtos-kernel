@@ -6,7 +6,7 @@
 # %LICENSE%
 #
 
-VERSION="3.0 rev: $(shell git rev-parse --short HEAD)"
+VERSION="2.97 rev: $(shell git rev-parse --short HEAD)"
 CONSOLE?=vga
 KERNEL=1
 
@@ -14,14 +14,15 @@ SIL ?= @
 MAKEFLAGS += --no-print-directory
 
 include ../phoenix-rtos-build/Makefile.common
+include ../phoenix-rtos-build/Makefile.$(TARGET_SUFF)
 
 # TODO: replace BOARD_CONFIG usage with board_config.h
 CFLAGS += $(BOARD_CONFIG)
-CFLAGS += -I.
-CPPFLAGS += -DVERSION=\"$(VERSION)\"
+CFLAGS += -I. -I$(PROJECT_PATH)/
+CFLAGS += -DVERSION=\"$(VERSION)\"
 
 # uncomment to enable stack canary checking
-# CPPFLAGS += -DSTACK_CANARY
+# CFLAGS += -DSTACK_CANARY
 
 EXTERNAL_HEADERS_DIR := ./include
 EXTERNAL_HEADERS := $(shell find $(EXTERNAL_HEADERS_DIR) -name \*.h)
@@ -43,6 +44,8 @@ include posix/Makefile
 include lib/Makefile
 include test/Makefile
 include log/Makefile
+
+include monitor/Makefile
 
 # incremental build quick-fix, WARN: assuming the sources are in c
 DEPS := $(patsubst %.o, %.c.d, $(OBJS))

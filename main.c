@@ -108,6 +108,9 @@ int main(void)
 	_proc_init(&main_common.kmap, &main_common.kernel);
 	_syscalls_init();
 
+	// MONITOR
+	_monitor_init();
+
 #if 0
 	/* Start tests */
 	test_proc_threads1();

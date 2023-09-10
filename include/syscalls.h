@@ -69,7 +69,7 @@
 	ID(signalMask) \
 	ID(signalSuspend) \
 	ID(priority) \
-	\
+\
 	ID(sys_read) \
 	ID(sys_write) \
 	ID(sys_open) \
@@ -86,7 +86,7 @@
 	ID(sys_chmod) \
 	ID(sys_fstat) \
 	ID(sys_fsync) \
-	\
+\
 	ID(sys_accept) \
 	ID(sys_accept4) \
 	ID(sys_bind) \
@@ -105,13 +105,13 @@
 	ID(sys_shutdown) \
 	ID(sys_sethostname) \
 	ID(sys_setsockopt) \
-	\
+\
 	ID(sys_ioctl) \
 	ID(sys_futimens) \
 	ID(sys_poll) \
-	\
+\
 	ID(sys_tkill) \
-	\
+\
 	ID(sys_setpgid) \
 	ID(sys_getpgid) \
 	ID(sys_setpgrp) \
@@ -120,4 +120,10 @@
 	ID(sys_spawn) \
 	ID(release) \
 	ID(sbi_putchar) \
-	ID(sbi_getchar)
+	ID(sbi_getchar) \
+\
+	ID(log_data) \
+	ID(get_ondemand_data) \
+	ID(monitorsrv_set_port) \
+	ID(run_monitor_dqthr) \
+	ID(enable_threads_monitoring)

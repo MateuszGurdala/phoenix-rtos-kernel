@@ -26,8 +26,53 @@
 #include "posix/posix.h"
 #include "syspage.h"
 
+#include "include/monitor.h"
+
 #define SYSCALLS_NAME(name)   syscalls_##name,
 #define SYSCALLS_STRING(name) #name,
+
+/*
+ * Monitor
+ */
+
+int syscalls_log_data(void *ustack)
+{
+	int e_buff;
+	m_data data;
+	GETFROMSTACK(ustack, int, e_buff, 0);
+	GETFROMSTACK(ustack, m_data, data, 1);
+
+	return monitor_save_data(e_buff, data);
+}
+
+int syscalls_get_ondemand_data(void *ustack)
+{
+	char *file_name;
+	GETFROMSTACK(ustack, char *, file_name, 0);
+
+	return monitor_demand_data(file_name);
+}
+
+int syscalls_monitorsrv_set_port(void *ustack)
+{
+	unsigned port;
+	GETFROMSTACK(ustack, unsigned, port, 0);
+
+	monitor_set_port(port);
+	// threads_enable_monitoring(); // MG: Fix this
+	return 0;
+}
+
+int syscalls_run_monitor_dqthr(void *ustack)
+{
+	monitor_dqthr();
+	return 0;
+}
+
+int syscalls_enable_threads_monitoring(void *ustack)
+{
+	return threads_enable_monitoring();
+}
 
 /*
  * Kernel
@@ -71,10 +116,8 @@ void *syscalls_mmap(void *ustack)
 		o = (void *)-1;
 	}
 	else if (oid == OID_CONTIGUOUS) {
-		o = vm_objectContiguous(size);
-		if (o == NULL) {
+		if ((o = vm_objectContiguous(size)) == NULL)
 			return (void *)-1;
-		}
 	}
 	else if (vm_objectGet(&o, *oid) != EOK) {
 		return NULL;
@@ -83,9 +126,9 @@ void *syscalls_mmap(void *ustack)
 	vaddr = vm_mmap(proc_current()->process->mapp, vaddr, NULL, size, PROT_USER | prot, o, (o == NULL) ? -1 : offs, flags);
 	vm_objectPut(o);
 
-	if (vaddr == NULL) {
+	/* vm_mapDump(proc_current()->process->mapp); */
+	if (vaddr == NULL)
 		return (void *)-1;
-	}
 
 	return vaddr;
 }
@@ -150,6 +193,7 @@ int syscalls_exec(void *ustack)
 	GETFROMSTACK(ustack, char **, argv, 1);
 	GETFROMSTACK(ustack, char **, envp, 2);
 
+	// return -ENOSYS;
 	return proc_execve(path, argv, envp);
 }
 
@@ -250,7 +294,7 @@ int syscalls_beginthreadex(void *ustack)
 
 	err = proc_threadCreate(p, start, id, priority, SIZE_KSTACK, stack, stacksz, arg);
 
-	if ((p != NULL) && (err < 0)) {
+	if (p != NULL && err < 0) {
 		proc_put(p);
 	}
 
@@ -276,18 +320,18 @@ int syscalls_nsleep(void *ustack)
 	GETFROMSTACK(ustack, long int *, nsec, 1);
 
 	/* TODO - user pointer check */
-	if ((sec == NULL) || (nsec == NULL)) {
+	if (sec == NULL || nsec == NULL) {
 		return -EINVAL;
 	}
 
 	/* FIXME - time_t should be signed and we should check for *sec < 0 */
-	if (((*nsec) < 0) || ((*nsec) >= (1000 * 1000 * 1000))) {
+	if (*nsec < 0 || *nsec >= 1000 * 1000 * 1000) {
 		return -EINVAL;
 	}
 
 	proc_gettime(&start, NULL);
 
-	us = ((*sec) * 1000 * 1000) + (((*nsec) + 999) / 1000);
+	us = *sec * 1000 * 1000 + (*nsec + 999) / 1000;
 
 	ret = proc_threadSleep(us);
 
@@ -334,10 +378,8 @@ int syscalls_threadsinfo(void *ustack)
 	n = proc_threadsList(n, info);
 
 	for (i = 0; i < n; ++i) {
-		ppid = posix_getppid(info[i].pid);
-		if (ppid > 0) {
+		if ((ppid = posix_getppid(info[i].pid)) > 0)
 			info[i].ppid = ppid;
-		}
 	}
 
 	return n;
@@ -561,14 +603,11 @@ int syscalls_interrupt(void *ustack)
 	GETFROMSTACK(ustack, unsigned int, cond, 3);
 	GETFROMSTACK(ustack, unsigned int *, handle, 4);
 
-	res = userintr_setHandler(n, f, data, cond);
-	if (res < 0) {
+	if ((res = userintr_setHandler(n, f, data, cond)) < 0)
 		return res;
-	}
 
-	if (handle != NULL) {
+	if (handle != NULL)
 		*handle = res;
-	}
 
 	return EOK;
 }
@@ -673,12 +712,18 @@ int syscalls_lookup(void *ustack)
 
 int syscalls_gettime(void *ustack)
 {
-	time_t *praw, *poffs;
+	time_t *praw, *poffs, raw, offs;
 
 	GETFROMSTACK(ustack, time_t *, praw, 0);
 	GETFROMSTACK(ustack, time_t *, poffs, 1);
 
-	proc_gettime(praw, poffs);
+	proc_gettime(&raw, &offs);
+
+	if (praw != NULL)
+		(*praw) = raw;
+
+	if (poffs != NULL)
+		(*poffs) = offs;
 
 	return EOK;
 }
@@ -814,7 +859,7 @@ addr_t syscalls_va2pa(void *ustack)
 
 	GETFROMSTACK(ustack, void *, va, 0);
 
-	return (pmap_resolve(proc_current()->process->pmapp, (void *)((ptr_t)va & ~0xfff)) & ~0xfff) + ((ptr_t)va & 0xfff);
+	return (pmap_resolve(proc_current()->process->pmapp, (void *)((unsigned long)va & ~0xfff)) & ~0xfff) + ((unsigned long)va & 0xfff);
 }
 
 
@@ -844,20 +889,15 @@ int syscalls_signalPost(void *ustack)
 	GETFROMSTACK(ustack, int, tid, 1);
 	GETFROMSTACK(ustack, int, signal, 2);
 
-	proc = proc_find(pid);
-	if (proc == NULL) {
+	if ((proc = proc_find(pid)) == NULL)
+		return -EINVAL;
+
+	if (tid >= 0 && (t = threads_findThread(tid)) == NULL) {
+		proc_put(proc);
 		return -EINVAL;
 	}
 
-	if (tid >= 0) {
-		t = threads_findThread(tid);
-		if (t == NULL) {
-			proc_put(proc);
-			return -EINVAL;
-		}
-	}
-
-	if ((t != NULL) && (t->process != proc)) {
+	if (t != NULL && t->process != proc) {
 		proc_put(proc);
 		threads_put(t);
 		return -EINVAL;
@@ -866,9 +906,8 @@ int syscalls_signalPost(void *ustack)
 	err = threads_sigpost(proc, t, signal);
 
 	proc_put(proc);
-	if (t != NULL) {
+	if (t != NULL)
 		threads_put(t);
-	}
 
 	return err;
 }
@@ -894,7 +933,7 @@ unsigned int syscalls_signalMask(void *ustack)
 int syscalls_signalSuspend(void *ustack)
 {
 	unsigned int mask, old;
-	int ret;
+	int ret = 0;
 	thread_t *t;
 
 	GETFROMSTACK(ustack, unsigned, mask, 0);
@@ -904,18 +943,14 @@ int syscalls_signalSuspend(void *ustack)
 	old = t->sigmask;
 	t->sigmask = mask;
 
-	do {
+	while (ret != -EINTR)
 		ret = proc_threadSleep(1ULL << 52);
-	} while (ret != -EINTR);
-
 	t->sigmask = old;
 
 	return ret;
 }
 
-
 /* POSIX compatibility syscalls */
-
 
 int syscalls_sys_open(char *ustack)
 {
@@ -1466,7 +1501,7 @@ pid_t syscalls_sys_setsid(char *ustack)
 
 void syscalls_sbi_putchar(char *ustack)
 {
-#ifdef __TARGET_RISCV64
+#ifdef TARGET_RISCV64
 	char c;
 	GETFROMSTACK(ustack, char, c, 0);
 	sbi_ecall(SBI_PUTCHAR, 0, c, 0, 0, 0, 0, 0);
@@ -1476,7 +1511,7 @@ void syscalls_sbi_putchar(char *ustack)
 
 int syscalls_sbi_getchar(char *ustack)
 {
-#ifdef __TARGET_RISCV64
+#ifdef TARGET_RISCV64
 	sbiret_t ret;
 	ret = sbi_ecall(SBI_GETCHAR, 0, 0, 0, 0, 0, 0, 0);
 	return (int)ret.error;
@@ -1505,15 +1540,13 @@ void *syscalls_dispatch(int n, char *ustack)
 {
 	void *retval;
 
-	if (n >= (sizeof(syscalls) / sizeof(syscalls[0]))) {
+	if (n >= sizeof(syscalls) / sizeof(syscalls[0]))
 		return (void *)-EINVAL;
-	}
 
 	retval = ((void *(*)(char *))syscalls[n])(ustack);
 
-	if (proc_current()->exit != 0) {
+	if (proc_current()->exit)
 		proc_threadEnd();
-	}
 
 	return retval;
 }

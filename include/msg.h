@@ -16,6 +16,7 @@
 #ifndef _PHOENIX_MSG_H_
 #define _PHOENIX_MSG_H_
 
+#include "monitor.h"
 /*
  * Message types
  */
@@ -23,15 +24,30 @@
 
 enum {
 	/* File operations */
-	mtOpen = 0, mtClose, mtRead, mtWrite, mtTruncate, mtDevCtl,
+	mtOpen = 0,
+	mtClose,
+	mtRead,
+	mtWrite,
+	mtTruncate,
+	mtDevCtl,
 
 	/* Object operations */
-	mtCreate, mtDestroy, mtSetAttr, mtGetAttr,
+	mtCreate,
+	mtDestroy,
+	mtSetAttr,
+	mtGetAttr,
 
 	/* Directory operations */
-	mtLookup, mtLink, mtUnlink, mtReaddir,
+	mtLookup,
+	mtLink,
+	mtUnlink,
+	mtReaddir,
+	mtCount,
 
-	mtCount
+	/* Monitoring tool message types*/
+	monRealTimeData,
+	monOnDemandData,
+	monReadOnDemandData
 };
 
 
@@ -95,6 +111,12 @@ typedef struct _msg_t {
 				oid_t dir;
 				offs_t offs;
 			} readdir;
+
+			/* MBUFFER_METADATA*/
+			struct {
+				unsigned id;
+				unsigned size;
+			} mbuff_data;
 
 			unsigned char raw[64];
 		};
