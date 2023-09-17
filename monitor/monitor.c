@@ -261,6 +261,38 @@ void monitor_dqthr()
 	}
 }
 
+int monitor_get_mdata_q(m_data *mdata_qcpy)
+{
+	int qtemp = monitor_common.rtq.queue;
+
+	if (monitor_common.rtq.queue) {
+		proc_lockSet(&monitor_common.rtq.lock);
+
+		hal_memcpy(mdata_qcpy, monitor_common.mdata_q, monitor_common.rtq.queue * sizeof(m_data));
+		monitor_common.rtq.queue = 0;
+
+		proc_lockClear(&monitor_common.rtq.lock);
+	}
+
+	return qtemp;
+}
+
+int monitor_get_mbuffer_q(m_buffer *mbuffer_qcpy)
+{
+	int qtemp = monitor_common.odq.queue;
+
+	if (monitor_common.odq.queue) {
+		proc_lockSet(&monitor_common.odq.lock);
+
+		hal_memcpy(mbuffer_qcpy, monitor_common.mbuffer_q, monitor_common.odq.queue * sizeof(m_buffer));
+		monitor_common.odq.queue = 0;
+
+		proc_lockClear(&monitor_common.odq.lock);
+	}
+
+	return qtemp;
+}
+
 void _monitor_init()
 {
 	int err = 0;

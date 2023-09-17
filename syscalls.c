@@ -45,6 +45,24 @@ int syscalls_log_data(void *ustack)
 	return monitor_save_data(e_buff, data);
 }
 
+int syscalls_get_mdata_q(void *ustack)
+{
+	m_data *mdata_qcpy;
+
+	GETFROMSTACK(ustack, m_data*, mdata_qcpy, 0);
+
+	return monitor_get_mdata_q(mdata_qcpy);
+}
+
+int syscalls_get_mbuffer_q(void *ustack)
+{
+	m_buffer *mbuffer_qcpy;
+
+	GETFROMSTACK(ustack, m_buffer*, mbuffer_qcpy, 0);
+
+	return monitor_get_mbuffer_q(mbuffer_qcpy);
+}
+
 int syscalls_get_ondemand_data(void *ustack)
 {
 	char *file_name;

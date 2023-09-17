@@ -126,4 +126,6 @@
 	ID(get_ondemand_data) \
 	ID(monitorsrv_set_port) \
 	ID(run_monitor_dqthr) \
-	ID(enable_threads_monitoring)
+	ID(enable_threads_monitoring) \
+	ID(get_mdata_q) \
+	ID(get_mbuffer_q)

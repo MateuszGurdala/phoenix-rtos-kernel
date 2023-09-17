@@ -7,17 +7,18 @@
 #define DT_REALTIME 1
 
 #define FILE_MAX_LENGTH 10
-#define MAX_MSG_LENGTH 64
+#define MAX_MSG_LENGTH  64
 
-enum E_MBUFFERS
-{
+#define RTQ_MAXSIZE 512
+#define ODQ_MAXSIZE 8
+
+enum E_MBUFFERS {
 #define MBUFF(NAME, TYPE, SIZE) mbuff_##NAME,
 	MBUFFERS()
 #undef MBUFF
 };
 
-enum T_MDATA
-{
+enum T_MDATA {
 	mdt_msg,
 	mdt_scheduleinfo
 };
@@ -27,8 +28,7 @@ typedef struct
 	unsigned mtype;
 	unsigned long long timestamp;
 
-	union
-	{
+	union {
 		char msg[MAX_MSG_LENGTH];
 
 		struct
