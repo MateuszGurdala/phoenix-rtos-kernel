@@ -71,22 +71,6 @@ int syscalls_get_ondemand_data(void *ustack)
 	return monitor_demand_data(file_name);
 }
 
-int syscalls_monitorsrv_set_port(void *ustack)
-{
-	unsigned port;
-	GETFROMSTACK(ustack, unsigned, port, 0);
-
-	monitor_set_port(port);
-	// threads_enable_monitoring(); // MG: Fix this
-	return 0;
-}
-
-int syscalls_run_monitor_dqthr(void *ustack)
-{
-	monitor_dqthr();
-	return 0;
-}
-
 int syscalls_enable_threads_monitoring(void *ustack)
 {
 	return threads_enable_monitoring();
