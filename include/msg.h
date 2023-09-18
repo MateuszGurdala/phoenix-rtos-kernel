@@ -112,12 +112,6 @@ typedef struct _msg_t {
 				offs_t offs;
 			} readdir;
 
-			/* MBUFFER_METADATA*/
-			struct {
-				unsigned id;
-				unsigned size;
-			} mbuff_data;
-
 			unsigned char raw[64];
 		};
 
