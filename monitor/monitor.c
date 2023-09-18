@@ -35,18 +35,15 @@ int _mbuff_init(unsigned ebuff, unsigned data_type, unsigned size)
 	m_buffer *mbuffer = _access_mbuffer(ebuff);
 
 	// Check init data
-	if (mbuffer == NULL) {
+	if (mbuffer == NULL)
 		return -ENOBUFF;
-	}
 
-	if (data_type != DT_ONDEMAND && data_type != DT_REALTIME) {
+	if (data_type != DT_ONDEMAND && data_type != DT_REALTIME)
 		return -ENODT;
-	}
 
 	// Memory allocation
-	if ((mbuffer->buffer = vm_kmalloc(sizeof(m_data) * size)) == NULL) {
+	if ((mbuffer->buffer = vm_kmalloc(sizeof(m_data) * size)) == NULL)
 		return -ENOMEM;
-	}
 
 	// mbuffer metadata
 	mbuffer->data_type = data_type;
@@ -110,23 +107,6 @@ int monitor_queue_mdata(m_data *mdata)
 	proc_lockClear(&monitor_common.rtq.lock);
 
 	return EOK;
-}
-
-int monitor_demand_data(char *file_name)
-{
-	int err = EOK;
-	msg_t msg = {
-		.type = monReadOnDemandData,
-		.i.data = NULL,
-		.i.size = 0,
-		.o.data = NULL,
-		.o.size = 0
-	};
-
-	hal_strcpy(&msg.i.raw, file_name);
-
-	//	err = proc_send(monitor_common.port, &msg); TODO: FIXTHIS
-	return err;
 }
 
 int monitor_save_data(unsigned ebuff, m_data mdata)
@@ -222,10 +202,8 @@ void _monitor_init()
 	MBUFFERS()
 #undef MBUFF
 
-	if (err < 0) {
+	if (err < 0)
 		lib_printf("monitor: init failed\n");
-	}
-	else {
+	else
 		lib_printf("monitor: init success\n");
-	}
 }

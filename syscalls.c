@@ -63,14 +63,6 @@ int syscalls_get_mbuffer_q(void *ustack)
 	return monitor_get_mbuffer_q(mbuffer_qcpy);
 }
 
-int syscalls_get_ondemand_data(void *ustack)
-{
-	char *file_name;
-	GETFROMSTACK(ustack, char *, file_name, 0);
-
-	return monitor_demand_data(file_name);
-}
-
 int syscalls_enable_threads_monitoring(void *ustack)
 {
 	return threads_enable_monitoring();

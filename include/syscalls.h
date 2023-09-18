@@ -123,7 +123,6 @@
 	ID(sbi_getchar) \
 \
 	ID(log_data) \
-	ID(get_ondemand_data) \
 	ID(enable_threads_monitoring) \
 	ID(get_mdata_q) \
 	ID(get_mbuffer_q)
