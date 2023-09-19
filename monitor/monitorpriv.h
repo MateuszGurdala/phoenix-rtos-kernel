@@ -6,9 +6,7 @@
 
 struct m_queue_utils {
 	unsigned queue;
-	lock_t lock;
+	spinlock_t lock;
 };
-
-extern void monitor_dqthr();
 
 #endif

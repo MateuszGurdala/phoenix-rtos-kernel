@@ -12,10 +12,10 @@ static struct {
 
 static struct {
 	struct m_queue_utils rtq;
-	m_data *mdata_q;
+	m_data mdata_q[RTQ_MAXSIZE];
 
 	struct m_queue_utils odq;
-	m_buffer *mbuffer_q;
+	m_buffer mbuffer_q[ODQ_MAXSIZE];
 } monitor_common;
 
 m_buffer *
@@ -85,9 +85,12 @@ int _monitor_queue_mbuffer(m_buffer *mbuffer)
 
 int monitor_queue_mbuffer(m_buffer *mbuffer)
 {
-	proc_lockSet(&monitor_common.odq.lock);
+	spinlock_ctx_t sc;
+
+	hal_spinlockSet(&monitor_common.odq.lock, &sc);
 	_monitor_queue_mbuffer(mbuffer);
-	proc_lockClear(&monitor_common.odq.lock);
+	hal_spinlockClear(&monitor_common.odq.lock, &sc);
+
 	return EOK;
 }
 
@@ -102,9 +105,11 @@ int _monitor_queue_mdata(m_data *mdata)
 
 int monitor_queue_mdata(m_data *mdata)
 {
-	proc_lockSet(&monitor_common.rtq.lock);
+	spinlock_ctx_t sc;
+
+	hal_spinlockSet(&monitor_common.rtq.lock, &sc);
 	_monitor_queue_mdata(mdata);
-	proc_lockClear(&monitor_common.rtq.lock);
+	hal_spinlockClear(&monitor_common.rtq.lock, &sc);
 
 	return EOK;
 }
@@ -153,15 +158,16 @@ int monitor_save_data(unsigned ebuff, m_data mdata)
 int monitor_get_mdata_q(m_data *mdata_qcpy)
 {
 	int qtemp = 0;
+	spinlock_ctx_t sc;
 
 	if (monitor_common.rtq.queue) {
-		proc_lockSet(&monitor_common.rtq.lock);
+		hal_spinlockSet(&monitor_common.rtq.lock, &sc);
 
 		qtemp = monitor_common.rtq.queue;
-		hal_memcpy(mdata_qcpy, monitor_common.mdata_q, monitor_common.rtq.queue * sizeof(m_data));
+		hal_memcpy(mdata_qcpy, &monitor_common.mdata_q, monitor_common.rtq.queue * sizeof(m_data));
 		monitor_common.rtq.queue = 0;
 
-		proc_lockClear(&monitor_common.rtq.lock);
+		hal_spinlockClear(&monitor_common.rtq.lock, &sc);
 	}
 
 	return qtemp;
@@ -170,15 +176,16 @@ int monitor_get_mdata_q(m_data *mdata_qcpy)
 int monitor_get_mbuffer_q(m_buffer *mbuffer_qcpy)
 {
 	int qtemp = 0;
+	spinlock_ctx_t sc;
 
 	if (monitor_common.odq.queue) {
-		proc_lockSet(&monitor_common.odq.lock);
+		hal_spinlockSet(&monitor_common.odq.lock, &sc);
 
 		qtemp = monitor_common.odq.queue;
-		hal_memcpy(mbuffer_qcpy, monitor_common.mbuffer_q, monitor_common.odq.queue * sizeof(m_buffer));
+		hal_memcpy(mbuffer_qcpy, &monitor_common.mbuffer_q, monitor_common.odq.queue * sizeof(m_buffer));
 		monitor_common.odq.queue = 0;
 
-		proc_lockClear(&monitor_common.odq.lock);
+		hal_spinlockClear(&monitor_common.odq.lock, &sc);
 	}
 
 	return qtemp;
@@ -188,14 +195,11 @@ void _monitor_init()
 {
 	int err = 0;
 
-	proc_lockInit(&monitor_common.rtq.lock, "monitor.rtq.lock");
-	proc_lockInit(&monitor_common.odq.lock, "monitor.odq.lock");
+	hal_spinlockCreate(&monitor_common.rtq.lock, "monitor.rtq.lock");
+	hal_spinlockCreate(&monitor_common.odq.lock, "monitor.odq.lock");
 
 	monitor_common.rtq.queue = 0;
-	monitor_common.mdata_q = vm_kmalloc(sizeof(m_data) * RTQ_MAXSIZE);
-
 	monitor_common.odq.queue = 0;
-	monitor_common.mbuffer_q = vm_kmalloc(sizeof(m_buffer) * ODQ_MAXSIZE);
 
 	lib_printf("monitor: init\n");
 #define MBUFF(NAME, TYPE, SIZE) err += _mbuff_init(mbuff_##NAME, TYPE, SIZE);
