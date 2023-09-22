@@ -49,18 +49,20 @@ int syscalls_get_mdata_q(void *ustack)
 {
 	m_data *mdata_qcpy;
 
-	GETFROMSTACK(ustack, m_data*, mdata_qcpy, 0);
+	GETFROMSTACK(ustack, m_data *, mdata_qcpy, 0);
 
 	return monitor_get_mdata_q(mdata_qcpy);
 }
 
-int syscalls_get_mbuffer_q(void *ustack)
+int syscalls_empty_full_mbuffer(void *ustack)
 {
-	m_buffer *mbuffer_qcpy;
+	unsigned ebuff;
+	m_data* buff_cpy;
 
-	GETFROMSTACK(ustack, m_buffer*, mbuffer_qcpy, 0);
+	GETFROMSTACK(ustack, unsigned, ebuff, 0);
+	GETFROMSTACK(ustack, m_data *, buff_cpy, 1);
 
-	return monitor_get_mbuffer_q(mbuffer_qcpy);
+	return monitor_empty_full_mbuffer(ebuff, buff_cpy);
 }
 
 int syscalls_enable_threads_monitoring(void *ustack)

@@ -125,4 +125,4 @@
 	ID(log_data) \
 	ID(enable_threads_monitoring) \
 	ID(get_mdata_q) \
-	ID(get_mbuffer_q)
+	ID(empty_full_mbuffer)

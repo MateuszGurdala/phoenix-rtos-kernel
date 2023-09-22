@@ -16,6 +16,7 @@ enum E_MBUFFERS {
 #define MBUFF(NAME, TYPE, SIZE) mbuff_##NAME,
 	MBUFFERS()
 #undef MBUFF
+	mbuff_end
 };
 
 enum T_MDATA {

@@ -11,11 +11,10 @@ static struct {
 } monitor_buffers;
 
 static struct {
+	spinlock_t odq_lock;
+
 	struct m_queue_utils rtq;
 	m_data mdata_q[RTQ_MAXSIZE];
-
-	struct m_queue_utils odq;
-	m_buffer mbuffer_q[ODQ_MAXSIZE];
 } monitor_common;
 
 m_buffer *
@@ -68,50 +67,47 @@ int _mbuff_init(unsigned ebuff, unsigned data_type, unsigned size)
 	return EOK;
 }
 
-int _monitor_queue_mbuffer(m_buffer *mbuffer)
-{
-	monitor_common.mbuffer_q[monitor_common.odq.queue] = *mbuffer;
-	++monitor_common.odq.queue;
-
-	if (monitor_common.odq.queue == ODQ_MAXSIZE) {
-		for (unsigned i = 0; i < monitor_common.odq.queue; ++i) {
-			vm_kfree(monitor_common.mbuffer_q[i].buffer);
-		}
-		monitor_common.odq.queue = 0;
-	}
-
-	return EOK;
-}
-
-int monitor_queue_mbuffer(m_buffer *mbuffer)
-{
-	spinlock_ctx_t sc;
-
-	hal_spinlockSet(&monitor_common.odq.lock, &sc);
-	_monitor_queue_mbuffer(mbuffer);
-	hal_spinlockClear(&monitor_common.odq.lock, &sc);
-
-	return EOK;
-}
-
-int _monitor_queue_mdata(m_data *mdata)
+void _monitor_queue_mdata(m_data *mdata)
 {
 	monitor_common.mdata_q[monitor_common.rtq.queue] = *mdata;
 	++monitor_common.rtq.queue;
 	monitor_common.rtq.queue %= RTQ_MAXSIZE;
-
-	return EOK;
 }
 
-int monitor_queue_mdata(m_data *mdata)
+void monitor_queue_mdata(m_data *mdata)
 {
 	spinlock_ctx_t sc;
 
 	hal_spinlockSet(&monitor_common.rtq.lock, &sc);
 	_monitor_queue_mdata(mdata);
 	hal_spinlockClear(&monitor_common.rtq.lock, &sc);
+}
 
-	return EOK;
+int _monitor_push_odq_data(unsigned ebuff, m_data *mdata)
+{
+	m_buffer *mbuffer;
+
+	if ((mbuffer = _access_mbuffer(ebuff)) != NULL) {
+		if (mbuffer->size != mbuffer->max_size) {
+			mbuffer->buffer[mbuffer->size] = *mdata;
+			mbuffer->size++;
+		}
+		return EOK;
+	}
+
+	return -ENOBUFF;
+}
+
+int monitor_push_odq_data(unsigned ebuff, m_data *mdata)
+{
+	spinlock_ctx_t sc;
+	int err;
+
+	hal_spinlockSet(&monitor_common.odq_lock, &sc);
+	err = _monitor_push_odq_data(ebuff, mdata);
+	hal_spinlockClear(&monitor_common.odq_lock, &sc);
+
+	return err;
 }
 
 int monitor_save_data(unsigned ebuff, m_data mdata)
@@ -125,34 +121,18 @@ int monitor_save_data(unsigned ebuff, m_data mdata)
 	if ((mbuffer = _access_mbuffer(ebuff)) != NULL) {
 		switch (mbuffer->data_type) {
 			case DT_ONDEMAND:
-				mbuffer->buffer[mbuffer->size] = mdata;
-				mbuffer->size++;
-
-				if (mbuffer->size == mbuffer->max_size) {
-					if ((err = monitor_queue_mbuffer(mbuffer)) < 0) {
-						return err;
-					}
-					mbuffer->size = 0;
-
-					// Allocate new buffer without free, previous data is still necessary
-					if ((mbuffer->buffer = vm_kmalloc(sizeof(m_data) * mbuffer->max_size)) == NULL) {
-						return -ENOMEM;
-					}
-				}
+				return monitor_push_odq_data(ebuff, &mdata);
 				break;
 			case DT_REALTIME:
-				return monitor_queue_mdata(&mdata);
+				monitor_queue_mdata(&mdata);
+				return EOK;
 				break;
 			default:
 				return -ENODT;
 				break;
 		}
 	}
-	else {
-		return -ENOBUFF;
-	}
-
-	return EOK;
+	return -ENOBUFF;
 }
 
 int monitor_get_mdata_q(m_data *mdata_qcpy)
@@ -173,40 +153,51 @@ int monitor_get_mdata_q(m_data *mdata_qcpy)
 	return qtemp;
 }
 
-int monitor_get_mbuffer_q(m_buffer *mbuffer_qcpy)
+int monitor_empty_full_mbuffer(unsigned ebuff, m_data *buff_cpy)
 {
-	int qtemp = 0;
+	m_buffer *mbuffer;
 	spinlock_ctx_t sc;
 
-	if (monitor_common.odq.queue) {
-		hal_spinlockSet(&monitor_common.odq.lock, &sc);
+	hal_spinlockSet(&monitor_common.odq_lock, &sc);
 
-		qtemp = monitor_common.odq.queue;
-		hal_memcpy(mbuffer_qcpy, &monitor_common.mbuffer_q, monitor_common.odq.queue * sizeof(m_buffer));
-		monitor_common.odq.queue = 0;
-
-		hal_spinlockClear(&monitor_common.odq.lock, &sc);
+	if ((mbuffer = _access_mbuffer(ebuff)) == NULL) {
+		hal_spinlockClear(&monitor_common.odq_lock, &sc);
+		return -ENOBUFF;
 	}
 
-	return qtemp;
+	if (mbuffer->data_type != DT_ONDEMAND) {
+		hal_spinlockClear(&monitor_common.odq_lock, &sc);
+		return -ENODT;
+	}
+
+	if (mbuffer->size != mbuffer->max_size) {
+		hal_spinlockClear(&monitor_common.odq_lock, &sc);
+		return -ENOBUFFULL;
+	}
+
+	hal_memcpy(buff_cpy, mbuffer->buffer, mbuffer->max_size * sizeof(m_data));
+	mbuffer->size = 0;
+
+	hal_spinlockClear(&monitor_common.odq_lock, &sc);
+
+	return mbuffer->max_size;
 }
 
 void _monitor_init()
 {
-	int err = 0;
+	int err = EOK;
 
 	hal_spinlockCreate(&monitor_common.rtq.lock, "monitor.rtq.lock");
-	hal_spinlockCreate(&monitor_common.odq.lock, "monitor.odq.lock");
+	hal_spinlockCreate(&monitor_common.odq_lock, "monitor.odq_lock");
 
 	monitor_common.rtq.queue = 0;
-	monitor_common.odq.queue = 0;
 
 	lib_printf("monitor: init\n");
 #define MBUFF(NAME, TYPE, SIZE) err += _mbuff_init(mbuff_##NAME, TYPE, SIZE);
 	MBUFFERS()
 #undef MBUFF
 
-	if (err < 0)
+	if (err < EOK)
 		lib_printf("monitor: init failed\n");
 	else
 		lib_printf("monitor: init success\n");
