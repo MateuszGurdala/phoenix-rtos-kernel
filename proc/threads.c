@@ -72,24 +72,33 @@ static thread_t *_proc_current(void);
 static void _proc_threadDequeue(thread_t *t);
 static int _proc_threadWait(thread_t **queue, time_t timeout, spinlock_ctx_t *scp);
 
-int threads_enable_monitoring()
+int threads_switch_monitoring()
 {
-	threads_common.enable_monitoring = 1;
+	threads_common.enable_monitoring = !threads_common.enable_monitoring;
+}
+
+int check_if_excluded(unsigned id)
+{
+	unsigned excluded_t_ids[] = { 6, 7 }; //6->posixsrv 7->lwip
+
+	for (int i = 0; i < sizeof(excluded_t_ids) / sizeof(unsigned); ++i) {
+		if (excluded_t_ids[i] == id)
+			return 1;
+	}
+
+	return 0;
 }
 
 int threads_monitor_scheduling(thread_t *current, thread_t *selected)
 {
-	if (current == NULL || selected == NULL) {
+	if (current == NULL || selected == NULL)
 		return 1;
-	}
 
-	if (current->id == selected->id) {
+	if (current->id == selected->id)
 		return 2;
-	}
 
-	if (current->id == 0 || selected->id == 0) {
+	if (current->id == 0 || selected->id == 0)
 		return 3;
-	}
 
 	m_data mdata = {
 		.mtype = mdt_scheduleinfo,
@@ -100,14 +109,19 @@ int threads_monitor_scheduling(thread_t *current, thread_t *selected)
 		.data.schedule_info.npid = 0
 	};
 
-	if (current->process != NULL) {
+	if (current->process != NULL && selected->process != NULL) {
 		mdata.data.schedule_info.pid = current->process->id;
-	}
-	if (selected->process != NULL) {
 		mdata.data.schedule_info.npid = selected->process->id;
-	}
 
-	return _monitor_queue_mdata(&mdata);
+		if (mdata.data.schedule_info.pid == mdata.data.schedule_info.npid)
+			return 10;
+
+		if (check_if_excluded(mdata.data.schedule_info.pid) || check_if_excluded(mdata.data.schedule_info.npid))
+			return 10;
+
+		return _monitor_queue_mdata(&mdata);
+	}
+	return -1;
 }
 
 static time_t _proc_gettimeRaw(void)
