@@ -42,12 +42,7 @@ enum {
 	mtLink,
 	mtUnlink,
 	mtReaddir,
-	mtCount,
-
-	/* Monitoring tool message types*/
-	monRealTimeData,
-	monOnDemandData,
-	monReadOnDemandData
+	mtCount
 };
 
 

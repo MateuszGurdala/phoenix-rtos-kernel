@@ -49,7 +49,6 @@ typedef struct
 	unsigned data_type;
 	unsigned max_size;
 	unsigned size;
-	char filename[FILE_MAX_LENGTH];
 	m_data *buffer;
 } m_buffer;
 
