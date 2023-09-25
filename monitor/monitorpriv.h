@@ -4,9 +4,7 @@
 #define DQTHR_INIT_SLEEP 1000000  // us
 #define DQTHR_SLEEP      50000    // us
 
-struct m_queue_utils {
-	unsigned queue;
-	spinlock_t lock;
-};
+#define DT_ONDEMAND 0
+#define DT_REALTIME 1
 
 #endif

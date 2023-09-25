@@ -3,15 +3,9 @@
 
 #include "mbuffers.h"
 
-#define DT_ONDEMAND 0
-#define DT_REALTIME 1
-
-#define FILE_MAX_LENGTH 10
-#define RAW_MSG_LENGTH  48
-#define RT_MSG_LENGTH   64
-
 #define RTQ_MAXSIZE 512
-#define ODQ_MAXSIZE 8
+
+#define RAW_MSG_LENGTH 48
 
 enum E_MBUFFERS {
 #define MBUFF(NAME, TYPE, SIZE) mbuff_##NAME,
