@@ -79,7 +79,7 @@ int threads_switch_monitoring()
 
 int check_if_excluded(unsigned id)
 {
-	unsigned excluded_t_ids[] = { 6, 7 }; //6->posixsrv 7->lwip
+	unsigned excluded_t_ids[] = { 7 };  // 6->posixsrv 7->lwip
 
 	for (int i = 0; i < sizeof(excluded_t_ids) / sizeof(unsigned); ++i) {
 		if (excluded_t_ids[i] == id)
