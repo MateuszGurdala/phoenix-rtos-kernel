@@ -4,8 +4,8 @@
 #include "mbuffers.h"
 
 #define RTQ_MAXSIZE 512
-
 #define RAW_MSG_LENGTH 48
+#define MONITORED_T_MAX_COUNT 10
 
 enum E_MBUFFERS {
 #define MBUFF(NAME, TYPE, SIZE) mbuff_##NAME,

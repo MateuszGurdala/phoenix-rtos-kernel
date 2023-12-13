@@ -67,7 +67,11 @@ int syscalls_empty_full_mbuffer(void *ustack)
 
 int syscalls_switch_threads_monitoring(void *ustack)
 {
-	return threads_switch_monitoring();
+	unsigned id;
+
+	GETFROMSTACK(ustack, unsigned, id, 0);
+
+	return threads_switch_monitoring(id);
 }
 
 /*

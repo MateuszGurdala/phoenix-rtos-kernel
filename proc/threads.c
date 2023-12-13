@@ -63,8 +63,9 @@ struct {
 	unsigned char stackCanary[16];
 	time_t prev;
 
-	// MG: Temporary?
-	unsigned enable_monitoring;
+	// MONITOR
+	unsigned monitored_t_ids[MONITORED_T_MAX_COUNT];
+	unsigned monitored_count;
 } threads_common;
 
 
@@ -72,20 +73,38 @@ static thread_t *_proc_current(void);
 static void _proc_threadDequeue(thread_t *t);
 static int _proc_threadWait(thread_t **queue, time_t timeout, spinlock_ctx_t *scp);
 
-int threads_switch_monitoring()
+int threads_switch_monitoring(unsigned id)
 {
-	threads_common.enable_monitoring = !threads_common.enable_monitoring;
-}
+	int zero_index = -1;
 
-int check_if_excluded(unsigned id)
-{
-	unsigned excluded_t_ids[] = { 7 };  // 6->posixsrv 7->lwip
-
-	for (int i = 0; i < sizeof(excluded_t_ids) / sizeof(unsigned); ++i) {
-		if (excluded_t_ids[i] == id)
-			return 1;
+	if (threads_common.monitored_count != MONITORED_T_MAX_COUNT) {
+		for (int i = 0; i < MONITORED_T_MAX_COUNT; ++i) {
+			if (zero_index < 0 && threads_common.monitored_t_ids[i] == 0) {
+				zero_index = i;
+			}
+			else if (threads_common.monitored_t_ids[i] == id) {
+				threads_common.monitored_t_ids[i] = 0;
+				--threads_common.monitored_count;
+				return 0;
+			}
+		}
+		if (zero_index >= 0) {
+			threads_common.monitored_t_ids[zero_index] = id;
+			++threads_common.monitored_count;
+			return 0;
+		}
 	}
 
+	return 1;
+}
+
+int threads_check_if_monitored(unsigned id)
+{
+	for (int i = 0; i < MONITORED_T_MAX_COUNT; ++i) {
+		if (threads_common.monitored_t_ids[i] == id) {
+			return 1;
+		}
+	}
 	return 0;
 }
 
@@ -100,27 +119,25 @@ int threads_monitor_scheduling(thread_t *current, thread_t *selected)
 	if (current->id == 0 || selected->id == 0)
 		return 3;
 
-	m_data mdata = {
-		.mtype = mdt_scheduleinfo,
-		.timestamp = hal_timerGetUs(),
-		.data.schedule_info.tid = current->id,
-		.data.schedule_info.ntid = selected->id,
-		.data.schedule_info.pid = 0,
-		.data.schedule_info.npid = 0
-	};
-
 	if (current->process != NULL && selected->process != NULL) {
-		mdata.data.schedule_info.pid = current->process->id;
-		mdata.data.schedule_info.npid = selected->process->id;
-
-		if (mdata.data.schedule_info.pid == mdata.data.schedule_info.npid)
+		if (current->process->id == selected->process->id)
 			return 10;
 
-		if (check_if_excluded(mdata.data.schedule_info.pid) || check_if_excluded(mdata.data.schedule_info.npid))
-			return 10;
+		if (threads_check_if_monitored(current->process->id) ||
+			threads_check_if_monitored(selected->process->id)) {
+			m_data mdata = {
+				.mtype = mdt_scheduleinfo,
+				.timestamp = hal_timerGetUs(),
+				.data.schedule_info.tid = current->id,
+				.data.schedule_info.ntid = selected->id,
+				.data.schedule_info.pid = current->process->id,
+				.data.schedule_info.npid = selected->process->id
+			};
 
-		return _monitor_queue_mdata(&mdata);
+			return _monitor_queue_mdata(&mdata);
+		}
 	}
+
 	return -1;
 }
 
@@ -690,9 +707,7 @@ int threads_schedule(unsigned int n, cpu_context_t *context, void *arg)
 		}
 		_perf_scheduling(selected);
 
-		if (threads_common.enable_monitoring) {
-			threads_monitor_scheduling(current, selected);
-		}
+		threads_monitor_scheduling(current, selected);
 
 		hal_cpuRestore(context, selected->context);
 
@@ -2032,6 +2047,8 @@ int _threads_init(vm_map_t *kmap, vm_object_t *kernel)
 	threads_common.prev = 0;
 
 	threads_common.perfGather = 0;
+
+	threads_common.monitored_count = 0;
 
 	proc_lockInit(&threads_common.lock, "threads.common");
 
