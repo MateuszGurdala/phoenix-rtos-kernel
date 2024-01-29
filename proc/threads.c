@@ -125,6 +125,7 @@ int threads_monitor_scheduling(thread_t *current, thread_t *selected)
 
 		if (threads_check_if_monitored(current->process->id) ||
 			threads_check_if_monitored(selected->process->id)) {
+
 			m_data mdata = {
 				.mtype = mdt_scheduleinfo,
 				.timestamp = hal_timerGetUs(),

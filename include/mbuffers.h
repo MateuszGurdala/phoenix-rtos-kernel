@@ -1,7 +1,7 @@
 /*
     Monitor buffers definitions.
     Author: Mateusz Gurdała
-    Part of 2023 B.Sc Thesis
+    Part of 2024 B.Sc Thesis
 
     To add a new buffer, add a new line:
     MBUFF(BUFFER_NAME, BUFFER_TYPE, BUFFER_SIZE)
@@ -14,6 +14,6 @@
     When DT_REALTIME buffer is declared size is automatically set to 0.
 */
 #define MBUFFERS() \
-	MBUFF(msg, DT_ONDEMAND, 2) \ 
+	MBUFF(msg, DT_ONDEMAND, 1) \
     MBUFF(rtmsg, DT_REALTIME, 0) \
     MBUFF(schinfo, DT_REALTIME, 0)
